@@ -94,8 +94,8 @@ class fund_backTest():
         self.begin_date=begin_date
         self.end_date=end_date
         self.account=Account(init_base)
-        self.trade_data={}
-        self.data={}
+        #self.trade_data={}
+        #self.data={}
         
         self.flag=0
         self.data=pd.DataFrame(index=dateRange(self.begin_date,self.end_date),columns=['init_base','fund_list','flag'])
