@@ -94,9 +94,6 @@ class fund_backTest():
         self.begin_date=begin_date
         self.end_date=end_date
         self.account=Account(init_base)
-        #self.trade_data={}
-        #self.data={}
-        
         self.flag=0
         self.data=pd.DataFrame(index=dateRange(self.begin_date,self.end_date),columns=['init_base','fund_list','flag'])
         self.data['fund_list']=self.data['fund_list'].astype('object')
@@ -234,9 +231,3 @@ class fund_backTest():
         return df_returns,max_drawdown,sharp_ratio,alpha,beta
         
     
-    def plot_returns(self,df_returns):
-        df_plot=df_returns.copy()
-        minmaxscaler=MinMaxScaler()
-        df_plot['bench_mark']=minmaxscaler.fit_transform(df_plot[['bench_mark']])
-        df_plot['total_assets']=minmaxscaler.fit_transform(df_plot[['total_assets']])
-        df_plot.loc[:,['bench_mark','total_assets']].plot()

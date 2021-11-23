@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Sep 16 15:42:09 2021
 
-@author: 029432
-"""
 
 
 from backtestv1 import *
