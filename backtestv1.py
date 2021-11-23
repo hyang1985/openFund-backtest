@@ -199,7 +199,34 @@ class fund_backTest():
             for t in navs.Times:
                 #将返回的时间转换为字符串型
                 idx=t.strftime("%Y-%m-%d")
-                market_value=np.dot(nums,d[:,i])
+                
+                #情况1:形如下列形式,多余1只基金，多个返回日期
+                #.ErrorCode=0
+                #.Codes=[000051.OF,020011.OF]
+                #.Fields=[NAV]
+                #.Times=[20210104,20210105]
+                #.Data=[[1.7652,1.7972],[1.2286,1.2511]]
+                if(d.shape[0]==2):
+                    market_value=np.dot(nums,d[:,i])
+                    
+                ##情况2:形如下列形式，只有一只基金，有多个返回日期
+                #.ErrorCode=0
+                #.Codes=[000051.OF]
+                #.Fields=[NAV]
+                #.Times=[20210104,20210105]
+                #.Data=[[1.7652,1.7972]]
+                if(d.shape[0]==1 and len(list(navs.Times))>1):
+                    market_value=np.dot(nums,d[0][i])
+                    
+                ##情况3，形如下列形式：多余1只基金，1个返回日期
+                #.ErrorCode=0
+                #.Codes=[000051.OF,020011.OF]
+                #.Fields=[NAV]
+                #.Times=[20210104]
+                # .Data=[[1.7652,1.2286]]
+                if(d.shape[0]==1 and len(list(navs.Times))==1):
+                    market_value=np.dot(nums,d[0])
+                    
                 df_returns.loc[idx,'market_value']=market_value
                 i=i+1
                 #if (t.strftime("%Y-%m-%d") in df_returns.index):
@@ -226,8 +253,7 @@ class fund_backTest():
         sharp_ratio=em.sharpe_ratio(df_returns['returns'])
         ###第八个指标，alpha及beta###
         alpha,beta=em.alpha_beta(df_returns['returns'], em.simple_returns(df_returns['bench_mark']))
-        
-        self.plot_returns(df_returns)
+
         return df_returns,max_drawdown,sharp_ratio,alpha,beta
         
     
