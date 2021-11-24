@@ -2,15 +2,10 @@
 """
 Created on Sun Nov 21 11:01:33 2021
 
-@author: hyang
+@author: huyang
+please contact me with hyang1985@hotmail.com
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Sep 16 15:32:20 2021
-
-@author: 029432
-"""
 #from libs import libs
 
 import pandas as pd
@@ -24,6 +19,9 @@ import empyrical as em
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 中文字体设置-黑体
+plt.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
 
 from sklearn.preprocessing import MinMaxScaler
 
@@ -176,10 +174,13 @@ class fund_backTest():
     def handle_data(self,log=True):
         #构造收益矩阵，矩阵中行为日期，列包含持仓市值，资金余额，alpha，beta等
         df_returns=self.data[self.data['flag'].isna()==False].copy()
-        
+        #df_returns['nav']=0
+        #df_returns['nav']=df_returns['nav'].astype('object')
         #将data按照flag划分为若干个时间区间，按照我们对flag的定义，每有一次交易时flag会+1，如果没有交易则不变，那么每个flag区间内持仓是一样的
         #分别计算每个flag内持仓的市值和总资产，用于进行后续收益率，风险的计算
         flags=df_returns['flag'].unique()
+        df_returns['nav']=0
+        df_returns['nav']=df_returns['nav'].astype('object')
         for flag in flags:
             begin_date=df_returns[df_returns['flag']==flag].index[0]
             end_date=df_returns[df_returns['flag']==flag].index[-1]
@@ -191,7 +192,6 @@ class fund_backTest():
             #持仓基金列表对应的持仓数量
             nums=list(df_returns.loc[begin_date]['fund_list'].values())
             navs=Cal_Fundlist_NetValue(fund_list,begin_date,end_date)
-            #print(navs)
             valid_index=[]
             #将返回的基金净值转换为numpy以便切片
             d=np.array(navs.Data)
@@ -206,8 +206,9 @@ class fund_backTest():
                 #.Fields=[NAV]
                 #.Times=[20210104,20210105]
                 #.Data=[[1.7652,1.7972],[1.2286,1.2511]]
-                if(d.shape[0]==2):
+                if(d.shape[0]>=2):
                     market_value=np.dot(nums,d[:,i])
+                    df_returns.at[idx,'nav']=d[:,i]
                     
                 ##情况2:形如下列形式，只有一只基金，有多个返回日期
                 #.ErrorCode=0
@@ -217,6 +218,7 @@ class fund_backTest():
                 #.Data=[[1.7652,1.7972]]
                 if(d.shape[0]==1 and len(list(navs.Times))>1):
                     market_value=np.dot(nums,d[0][i])
+                    df_returns.at[idx,'nav']=[d[0][i]]
                     
                 ##情况3，形如下列形式：多余1只基金，1个返回日期
                 #.ErrorCode=0
@@ -226,7 +228,7 @@ class fund_backTest():
                 # .Data=[[1.7652,1.2286]]
                 if(d.shape[0]==1 and len(list(navs.Times))==1):
                     market_value=np.dot(nums,d[0])
-                    
+                    df_returns.at[idx,'nav']=d[0]
                 df_returns.loc[idx,'market_value']=market_value
                 i=i+1
                 #if (t.strftime("%Y-%m-%d") in df_returns.index):
@@ -253,7 +255,53 @@ class fund_backTest():
         sharp_ratio=em.sharpe_ratio(df_returns['returns'])
         ###第八个指标，alpha及beta###
         alpha,beta=em.alpha_beta(df_returns['returns'], em.simple_returns(df_returns['bench_mark']))
+        
+        if(log):
+            for idx in df_returns.index:
+                
+                market_value=df_returns.loc[idx,'market_value']
+                total_assets=df_returns.loc[idx,'total_assets']
+                print("回测日期为：%s,当日持仓市值为：%.2f,总资产为：%.2f"%(idx,market_value,total_assets))
+                i=0
+                for k,v in df_returns.loc[idx,'fund_list'].items():
+                    nav=df_returns.loc[idx,'nav'][i]
+                    print("持仓为：%s,数量：%.5f，该基金当日净值为：%.5f"%(k,v,nav))
+                    i=i+1
+        self.plot_returns(df_returns)
+        
+        print("策略最大回撤为：%s,夏普比率为：%.2f,策略aplha为：%.2f,beta为：%.2f"%('{:.2f}%'.format(max_drawdown*100),sharp_ratio,alpha,beta))
+        return df_returns
+    
+    def plot_returns(self,df_returns):
+        #绘制总资产图
+        df_plot=df_returns.copy()
+        fig = plt.figure(figsize=(30,10))
+        ax = fig.add_subplot(3,1,1)
+        dates = [datetime.datetime.strptime(d, "%Y-%m-%d") for d in df_returns.index]
+        plt.plot(dates,df_plot.loc[:,['total_assets']],label='总资产')
+        plt.ylabel('总资产(单位：元)')
+        plt.title("总资产变化图")
+        ax.legend()
 
-        return df_returns,max_drawdown,sharp_ratio,alpha,beta
+        #绘制累计收益图
+        ax = fig.add_subplot(3,1,2)
+        dates = [datetime.datetime.strptime(d, "%Y-%m-%d") for d in df_returns.index]
+        plt.plot(dates,df_plot.loc[:,['cum_returns']],label='累计收益')
+        plt.ylabel('累计收益')
+        plt.title("累计收益图")
+        ax.legend()
+
+        #比较策略收益与沪深300收益
+        ax = fig.add_subplot(3,1,3)
+        minmaxscaler=MinMaxScaler()
+        df_plot['bench_mark']=minmaxscaler.fit_transform(df_plot[['bench_mark']])
+        df_plot['total_assets']=minmaxscaler.fit_transform(df_plot[['total_assets']])
+        dates = [datetime.datetime.strptime(d, "%Y-%m-%d") for d in df_returns.index]
+        plt.plot(dates,df_plot.loc[:,['bench_mark']],label='沪深300指数收益')
+        plt.plot(dates,df_plot.loc[:,['total_assets']],label='策略收益')
+        plt.title("策略与基准收益比对")
+        ax.legend()
+
+        plt.show()
         
     
