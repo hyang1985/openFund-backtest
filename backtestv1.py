@@ -275,7 +275,7 @@ class fund_backTest():
     def plot_returns(self,df_returns):
         #绘制总资产图
         df_plot=df_returns.copy()
-        fig = plt.figure(figsize=(30,10))
+        fig = plt.figure(figsize=(40,15))
         ax = fig.add_subplot(3,1,1)
         dates = [datetime.datetime.strptime(d, "%Y-%m-%d") for d in df_returns.index]
         plt.plot(dates,df_plot.loc[:,['total_assets']],label='总资产')
